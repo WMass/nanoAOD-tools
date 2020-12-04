@@ -37,12 +37,6 @@ do
 done
 echo '===now copying the files to eos!'
 eos cp compressed/*.root $OUTDIR/
-echo '===cleaning up'
-rm *.root
-rm compressed/*.*
-rmdir compressed
-rm keep_and_drop*.txt
-echo '===done cleaning'
 echo '===done'
 '''.format(pwd=os.environ['PWD']))
     f.close()
@@ -269,11 +263,12 @@ if args.condor:
 use_x509userproxy = true
 getenv      = True
 environment = "LS_SUBCWD={here}"
+transfer_output_files = ""
 request_memory = 2000
 +MaxRuntime = 20000 \n\n'''.format(here=os.environ['PWD'])
 
     # some customization
-    if os.environ['USER'] in ['mdunser', 'psilva']:
+    if os.environ['USER'] in ['mdunser', 'kelong', 'bendavid']:
         job_desc += '+AccountingGroup = "group_u_CMST3.all"\n'
     if os.environ['USER'] in ['mciprian']:
         job_desc += '+AccountingGroup = "group_u_CMS.CAF.ALCA"\n' 
