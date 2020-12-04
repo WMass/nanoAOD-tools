@@ -285,6 +285,8 @@ Error      = {cd}/log_condor_{dm}{rp}_chunk{ch}.error\n'''.format(cd=args.condor
         tmp_condor.write('queue 1\n\n')
     tmp_condor.close()
 
+    print 'condor submission file made:', tmp_condor_filename
+
 else:
     p = PostProcessor(outputDir=outDir,  
                   inputFiles=(input_files if crab==0 else inputFiles()),
