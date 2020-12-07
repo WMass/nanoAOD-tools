@@ -3,10 +3,16 @@ import os, sys
 import ROOT
 import argparse
 import subprocess
+import random
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 from importlib import import_module
 from PhysicsTools.NanoAODTools.postprocessing.framework.postprocessor import PostProcessor
 from PhysicsTools.NanoAODTools.postprocessing.wmass.SequenceBuilder import SequenceBuilder
+
+# example
+# python postproc.py -o /eos/cms/store/cmst3/group/wmass/w-mass-13TeV/postNANO/dec2020/DYJetsToMuMu_postVFP/ -d /eos/cms/store/cmst3/group/wmass/sroychow/nanov8/DYJetsToMuMu_M-50_TuneCP5_13TeV-powhegMiNNLO-pythia8-photos/RunIISummer20UL16MiniAOD-106X_mcRun2_asymptotic_v13-v2/  --passall 1 --eraVFP postVFP --isMC 1
+# condor options
+# -condor --condorDir postprocDY_postVFP -t 86400 -j ZmumuPostVFP -n 2
 
 def makeDummyFile():
     f = open('dummy_exec.sh', 'w')
@@ -80,6 +86,8 @@ parser.add_argument('-eraVFP',    '--eraVFP',   type=str, default="",     help="
 parser.add_argument('-condor'   , '--condor',  action='store_true',     help="run on condor instead of locally or on crab")
 parser.add_argument('-d'         , '--dsdir'    , type=str , default="", help="input directory of dataset, to be given with condor option!")
 parser.add_argument('-n'         , '--nfiles'   , type=int , default=5 , help="number of files to run per condor job")
+parser.add_argument('-j'         , '--jobname'  , type=str , default="" , help="Assign name to condor job, for easier tracking (by default the cluster ID is by condor_q)")
+parser.add_argument('-t'         , '--runtime'  , type=int , default=43200 , help="MaxRunTime for condor jobs, in seconds")
 parser.add_argument('-condorDir' , '--condorDir', type=str , default="", help="Mandatory to run with condor, specify output folder to save condor files, logs, etc...")
 parser.add_argument('-condorSkipFiles' , '--condorSkipFiles', type=str , default="", help="When using condor, can specify a file containing a list of files to be skipped (useful for resubmitting failed jobs)")
 parser.add_argument('-condorSelectFiles' , '--condorSelectFiles', type=str , default="", help="As --condorSkipFiles, but keep only these ones (useful for resubmitting failed jobs)")
@@ -103,6 +111,12 @@ outDir = args.outDir
 eraVFP = args.eraVFP
 
 isData = not isMC
+
+if outDir not in [".", "./"]:
+    print "Creating output directory"
+    cmd = "mkdir -p {d}".format(d=outDir)
+    print cmd
+    os.system(cmd)
 
 print "isMC =", bcolors.OKBLUE, isMC, bcolors.ENDC, \
     "genOnly =", bcolors.OKBLUE, genOnly, bcolors.ENDC, \
@@ -189,7 +203,7 @@ else:
     else : 
         input_files.extend( inputFile.split(',') )
 
-bob=SequenceBuilder(isMC, dataYear, runPeriod, jesUncert, eraVFP, passall, genOnly, isTest)
+bob=SequenceBuilder(isMC, dataYear, runPeriod, jesUncert, eraVFP, passall, genOnly, addOptional=True)
 modules=bob.buildFinalSequence()
 
 treecut = ("Entry$<" + str(maxEvents) if maxEvents > 0 else None)
@@ -239,6 +253,9 @@ if args.condor:
                 if len(selectFiles) and all(filename not in str(x) for x in selectFiles): continue
                 listoffiles.append(xrdindir+os.path.join(root, filename))
 
+    # shuffle input list, because some input files are much larger than others, and it this way we ensure that the run time is more uniform among different jobs
+    random.shuffle(listoffiles) # this modifies the array
+
     listoffilechunks = []
     for ff in range(len(listoffiles)/args.nfiles+1):
         listoffilechunks.append(listoffiles[ff*args.nfiles:args.nfiles*(ff+1)])
@@ -265,14 +282,18 @@ getenv      = True
 environment = "LS_SUBCWD={here}"
 transfer_output_files = ""
 request_memory = 2000
-+MaxRuntime = 20000 \n\n'''.format(here=os.environ['PWD'])
-
+transfer_output_files = ""
++MaxRuntime = {t}\n'''.format(here=os.environ['PWD'],t=args.runtime)
+    if args.jobname:
+        job_desc += '+JobBatchName = "%s"\n' % args.jobname
     # some customization
     if os.environ['USER'] in ['mdunser', 'kelong', 'bendavid']:
         job_desc += '+AccountingGroup = "group_u_CMST3.all"\n'
     if os.environ['USER'] in ['mciprian']:
         job_desc += '+AccountingGroup = "group_u_CMS.CAF.ALCA"\n' 
     ##
+    job_desc += '\n'
+
     tmp_condor = open(tmp_condor_filename,'w')
     tmp_condor.write(job_desc)
     for il,fs in enumerate(listoffilechunks):
