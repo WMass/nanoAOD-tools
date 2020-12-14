@@ -296,9 +296,10 @@ transfer_output_files = ""
 
     tmp_condor = open(tmp_condor_filename,'w')
     tmp_condor.write(job_desc)
+    tmp_rp = '' if isMC else '--runPeriod={p}'.format(p=args.runPeriod)
     for il,fs in enumerate(listoffilechunks):
         if not len(fs): continue
-        tmp_condor.write('arguments = {od} {pwd}/postproc.py  --isMC {isMC} --eraVFP {eraVFP} --dataYear {y} --passall {pa} -iFile {files} \n'.format(isMC=isMC,eraVFP=eraVFP,y=dataYear, pa=passall, files=','.join(fs),od=outDir,pwd=os.environ['PWD']))
+        tmp_condor.write('arguments = {od} {pwd}/postproc.py  --isMC {isMC} --eraVFP {eraVFP} --dataYear {y} {rp} --passall {pa} -iFile {files} \n'.format(isMC=isMC,eraVFP=eraVFP,y=dataYear, pa=passall, files=','.join(fs),od=outDir,pwd=os.environ['PWD'],rp=tmp_rp))
         tmp_condor.write('''
 Log        = {cd}/log_condor_{dm}{rp}_chunk{ch}.log
 Output     = {cd}/log_condor_{dm}{rp}_chunk{ch}.out
